@@ -72,6 +72,7 @@ $.FastButton = function(element, handler) {
 
 	$(element).bind({
 		touchstart: onTouchStart,
+		mouseover: function() { return false; },
 		click: onClick
 	});
 };

@@ -19,7 +19,19 @@
 
 $.fn.fastClick = function(handler) {
 	return $(this).each(function(){
-		$.FastButton($(this)[0], handler);
+		var button = $(this)[0],
+				clickEvent = null;
+
+		if (handler == null) {
+			if (button.onclick instanceof Function) {
+				clickEvent = button.onclick;
+				button.onclick = '';
+			}
+		}
+
+		if (handler != null || clickEvent != null) {
+			$.FastButton(button, handler || clickEvent);
+		}
 	});
 };
 

@@ -17,25 +17,26 @@
 
 (function($) {
 
-$.fn.fastClick = function(handler) {
-	return $(this).each(function(){
+$.fn.fastClick = function(options) {
+	options = options || {};
+	return $(this).each(function() {
 		var button = $(this)[0],
 				clickEvent = null;
 
-		if (handler == null) {
+		if (options.handler == null) {
 			if (button.onclick instanceof Function) {
 				clickEvent = button.onclick;
 				button.onclick = '';
 			}
 		}
 
-		if (handler != null || clickEvent != null) {
-			$.FastButton(button, handler || clickEvent);
+		if (options.handler != null || clickEvent != null) {
+			$.FastButton(button, options.handler || clickEvent, options);
 		}
 	});
 };
 
-$.FastButton = function(element, handler) {
+$.FastButton = function(element, handler, options) {
 	var startX, startY;
 
 	var reset = function() {
@@ -46,7 +47,7 @@ $.FastButton = function(element, handler) {
 	var onClick = function(event) {
 		event.stopPropagation();
 		reset();
-		handler.call(this, event);
+		delayManager.running && delayManager.stop() || handler.call(this, event);
 
 		if (event.type === 'touchend') {
 			$.clickbuster.preventGhostClick(startX, startY);
@@ -68,6 +69,11 @@ $.FastButton = function(element, handler) {
 
 		startX = event.originalEvent.touches[0].clientX;
 		startY = event.originalEvent.touches[0].clientY;
+
+		// keep firing handler if option "permanent" is set
+		if (options && options.permanent) {
+			delayManager.start(element, handler);
+		}
 	};
 
 	$(element).unbind();
@@ -76,6 +82,34 @@ $.FastButton = function(element, handler) {
 		mouseover: function() { return false; },
 		click: onClick
 	});
+
+	var delayManager = (function() {
+		var delay = 200,
+				applyHandler;
+
+		this.start = function(el, handler) {
+			// initialize applyHandler everytime start gets called
+			applyHandler = function(ms) {
+				console.log(handler);
+				if (this.running) {
+					ms = ms || delay; // TODO: ease the shit out of this
+					window.setTimeout(applyHandler, ms);
+					handler.call(el);
+				}
+			};
+
+			// kick off
+			window.setTimeout(applyHandler, delay);
+			this.running = true;
+		};
+
+		this.stop = function() {
+		this.running = false;
+		applyHandler = null;
+	};
+
+	return this;
+	})();
 };
 
 $.clickbuster = {

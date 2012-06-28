@@ -42,12 +42,13 @@ $.FastButton = function(element, handler, options) {
 	var reset = function() {
 		$(element).unbind('touchend');
 		$("body").unbind('touchmove.fastClick');
+		delayManager.stop();
 	};
 
 	var onClick = function(event) {
 		event.stopPropagation();
-		reset();
 		delayManager.running && delayManager.stop() || handler.call(this, event);
+		reset();
 
 		if (event.type === 'touchend') {
 			$.clickbuster.preventGhostClick(startX, startY);
@@ -84,13 +85,12 @@ $.FastButton = function(element, handler, options) {
 	});
 
 	var delayManager = (function() {
-		var delay = 200,
+		var delay = 300,
 				applyHandler;
 
 		this.start = function(el, handler) {
 			// initialize applyHandler everytime start gets called
 			applyHandler = function(ms) {
-				console.log(handler);
 				if (this.running) {
 					ms = ms || delay; // TODO: ease the shit out of this
 					window.setTimeout(applyHandler, ms);
@@ -104,11 +104,11 @@ $.FastButton = function(element, handler, options) {
 		};
 
 		this.stop = function() {
-		this.running = false;
-		applyHandler = null;
-	};
+			this.running = false;
+			applyHandler = null;
+		};
 
-	return this;
+		return this;
 	})();
 };
 

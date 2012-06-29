@@ -19,6 +19,16 @@
 
 	$.fn.fastClick = function(options) {
 		options = options || {};
+
+    if (!options.doNotPreventSelection) {
+      // preventing selection cannot be done on the elements only
+      $("*").css({
+        "-webkit-user-select":"none",
+        "-moz-user-select":"none",
+        "-khtml-user-select":"none"
+      });
+    }
+    
 		return $(this).each(function() {
 			var button = $(this)[0],
 					clickEvent = null;

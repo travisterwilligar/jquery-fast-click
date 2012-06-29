@@ -17,8 +17,8 @@
 
 (function($) {
 
-	$.fn.fastClick = function(options) {
-		options = options || {};
+  $.fn.fastClick = function(options) {
+    options = options || {};
 
     if (!options.doNotPreventSelection) {
       // preventing selection cannot be done on the elements only
@@ -28,133 +28,145 @@
         "-khtml-user-select":"none"
       });
     }
-    
-		return $(this).each(function() {
-			var button = $(this)[0],
-					clickEvent = null;
 
-			if (options.handler == null) {
-				if (button.onclick instanceof Function) {
-					// clickeventd
-					clickEvent = button.onclick;
-					button.onclick = '';
-				} else if (button.attr('href') != null) {
-					// link
-					clickEvent = function() {
-						window.location.href = button.attr('href');
-					}
-				}
-			}
+    return $(this).each(function() {
+      var button = this,
+          $button = $(button),
+          clickHandler = null;
+          
+      // try to get events from jquery directly
+      var foo = jQuery._data(this);
+      console.log(button.id, foo, foo.events);
 
-			if (options.handler != null || clickEvent != null) {
-				$.FastButton(button, options.handler || clickEvent, options);
-			}
-		});
-	};
+      if (options.handler == null) {
+        if (button.onclick instanceof Function) {
+          // button has clickHandler
+          clickHandler = button.onclick;
+          $button.data("clickHandler", button.onclick);
+          button.onclick = '';
+        } else if ($button.data("clickHandler")) {
+          // button has already been fastclicked (use old clickhandler)
+          clickHandler = $button.data("clickHandler");
+        } else if ($button.attr('href') != null) {
+          // button carries link
+          clickHandler = function() {
+            window.location.href = $button.attr('href');
+          }
+        }
+      } else {
+        // store handler, so future calls to fastclick remember it 
+        $button.data("clickHandler", options.handler);
+      }
 
-	$.FastButton = function(element, handler, options) {
-		var startX, startY;
+      if (options.handler != null || clickHandler != null) {
+        $.FastButton(button, options.handler || clickHandler, options);
+      }
+    });
+  };
 
-		var reset = function() {
-			$(element).unbind('touchend');
-			$("body").unbind('touchmove.fastClick');
-			delayManager.stop();
-		};
+  $.FastButton = function(element, handler, options) {
+    var startX, startY;
 
-		var onClick = function(event) {
-			event.stopPropagation();
-			delayManager.running && delayManager.stop() || handler.call(this, event);
-			reset();
+    var reset = function() {
+      $(element).unbind('touchend');
+      $("body").unbind('touchmove.fastClick');
+      delayManager.stop();
+    };
 
-			if (event.type === 'touchend') {
-				$.clickbuster.preventGhostClick(startX, startY);
-			}
-		};
+    var onClick = function(event) {
+      event.stopPropagation();
+      delayManager.running && delayManager.stop() || handler.call(this, event);
+      reset();
 
-		var onTouchMove = function(event) {
-			if (Math.abs(event.originalEvent.touches[0].clientX - startX) > 10 ||
-				Math.abs(event.originalEvent.touches[0].clientY - startY) > 10) {
-				reset();
-			}
-		};
+      if (event.type === 'touchend') {
+        $.clickbuster.preventGhostClick(startX, startY);
+      }
+    };
 
-		var onTouchStart = function(event) {
-			event.stopPropagation();
+    var onTouchMove = function(event) {
+      if (Math.abs(event.originalEvent.touches[0].clientX - startX) > 10 ||
+        Math.abs(event.originalEvent.touches[0].clientY - startY) > 10) {
+        reset();
+      }
+    };
 
-			$(element).bind('touchend', onClick);
-			$("body").bind('touchmove.fastClick', onTouchMove);
+    var onTouchStart = function(event) {
+      event.stopPropagation();
 
-			startX = event.originalEvent.touches[0].clientX;
-			startY = event.originalEvent.touches[0].clientY;
+      $(element).bind('touchend', onClick);
+      $("body").bind('touchmove.fastClick', onTouchMove);
 
-			// keep firing handler if option "permanent" is set
-			if (options && options.permanent) {
-				delayManager.start(element, handler);
-			}
-		};
+      startX = event.originalEvent.touches[0].clientX;
+      startY = event.originalEvent.touches[0].clientY;
 
-		$(element).unbind();
-		$(element).bind({
-			touchstart: onTouchStart,
-			mouseover: function() { return false; },
-			click: onClick
-		});
+      // keep firing handler if option "permanent" is set
+      if (options && options.permanent) {
+        delayManager.start(element, handler);
+      }
+    };
 
-		var delayManager = (function() {
-			var delay = 300,
-					applyHandler;
+    $(element).unbind();
+    $(element).bind({
+      touchstart: onTouchStart,
+      mouseover: function() { return false; },
+      click: onClick
+    });
 
-			this.start = function(el, handler) {
-				// initialize applyHandler everytime start gets called
-				applyHandler = function(ms) {
-					if (this.running) {
-						ms = ms || delay; // TODO: ease the shit out of this
-						window.setTimeout(applyHandler, ms);
-						handler.call(el);
-					}
-				};
+    var delayManager = (function() {
+      var delay = 300,
+          applyHandler;
 
-				// kick off
-				window.setTimeout(applyHandler, delay);
-				this.running = true;
-			};
+      this.start = function(el, handler) {
+        // initialize applyHandler everytime start gets called
+        applyHandler = function(ms) {
+          if (this.running) {
+            ms = ms || delay; // TODO: ease the shit out of this
+            window.setTimeout(applyHandler, ms);
+            handler.call(el);
+          }
+        };
 
-			this.stop = function() {
-				this.running = false;
-				applyHandler = null;
-			};
+        // kick off
+        window.setTimeout(applyHandler, delay);
+        this.running = true;
+      };
 
-			return this;
-		})();
-	};
+      this.stop = function() {
+        this.running = false;
+        applyHandler = null;
+      };
 
-	$.clickbuster = {
-		coordinates: [],
+      return this;
+    })();
+  };
 
-		preventGhostClick: function(x, y) {
-			$.clickbuster.coordinates.push(x, y);
-			window.setTimeout($.clickbuster.pop, 2500);
-		},
+  $.clickbuster = {
+    coordinates: [],
 
-		pop: function() {
-			$.clickbuster.coordinates.splice(0, 2);
-		},
+    preventGhostClick: function(x, y) {
+      $.clickbuster.coordinates.push(x, y);
+      window.setTimeout($.clickbuster.pop, 2500);
+    },
 
-		onClick: function(event) {
-			var x, y, i;
-			for (i = 0; i < $.clickbuster.coordinates.length; i += 2) {
-				x = $.clickbuster.coordinates[i];
-				y = $.clickbuster.coordinates[i + 1];
-				if (Math.abs(event.clientX - x) < 25 && Math.abs(event.clientY - y) < 25) {
-					event.stopPropagation();
-					event.preventDefault();
-				}
-			}
-		}
-	};
+    pop: function() {
+      $.clickbuster.coordinates.splice(0, 2);
+    },
 
-	$(function(){
-		document.addEventListener('click', $.clickbuster.onClick, true);
-	});
+    onClick: function(event) {
+      var x, y, i;
+      for (i = 0; i < $.clickbuster.coordinates.length; i += 2) {
+        x = $.clickbuster.coordinates[i];
+        y = $.clickbuster.coordinates[i + 1];
+        if (Math.abs(event.clientX - x) < 25 && Math.abs(event.clientY - y) < 25) {
+          event.stopPropagation();
+          event.preventDefault();
+        }
+      }
+    }
+  };
+
+  $(function(){
+    document.addEventListener('click', $.clickbuster.onClick, true);
+  });
 
 }(jQuery));

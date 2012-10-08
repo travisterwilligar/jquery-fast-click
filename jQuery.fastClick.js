@@ -23,9 +23,9 @@
     if (!options.doNotPreventSelection) {
       // preventing selection cannot be done on the elements only
       $("*").css({
-        "-webkit-user-select":"none",
-        "-moz-user-select":"none",
-        "-khtml-user-select":"none"
+        "-webkit-user-select": "none",
+        "-moz-user-select": "none",
+        "-khtml-user-select": "none"
       });
     }
 
@@ -33,32 +33,33 @@
       var button = this,
           $button = $(button),
           clickHandler = null;
-          
-      // try to get events from jquery directly
-      var foo = jQuery._data(this);
-      console.log(button.id, foo, foo.events);
 
-      if (options.handler == null) {
+      if (options.handler === undefined) {
         if (button.onclick instanceof Function) {
           // button has clickHandler
           clickHandler = button.onclick;
-          $button.data("clickHandler", button.onclick);
           button.onclick = '';
         } else if ($button.data("clickHandler")) {
           // button has already been fastclicked (use old clickhandler)
           clickHandler = $button.data("clickHandler");
-        } else if ($button.attr('href') != null) {
+        } else if ($button.attr('href') !== undefined) {
           // button carries link
           clickHandler = function() {
             window.location.href = $button.attr('href');
-          }
+          };
         }
-      } else {
-        // store handler, so future calls to fastclick remember it 
-        $button.data("clickHandler", options.handler);
+      } else if (options.replaceOldHandler && button.onclick instanceof Function) {
+        // if we have clickhandler on the button, get rid of it
+        button.onclick = '';
       }
 
-      if (options.handler != null || clickHandler != null) {
+      if ((options.handler || clickHandler) !== undefined) {
+        if (!options.replaceOldHandler) {
+          // store handler, so future calls to fastclick remember it
+          $button.data("clickHandler", options.handler || clickHandler);
+        }
+
+        // actually call Fastbutton for the handler
         $.FastButton(button, options.handler || clickHandler, options);
       }
     });
@@ -75,7 +76,12 @@
 
     var onClick = function(event) {
       event.stopPropagation();
-      delayManager.running && delayManager.stop() || handler.call(this, event);
+
+      if (delayManager.running) {
+        delayManager.stop();
+      } else {
+        handler.call(this, event);
+      }
       reset();
 
       if (event.type === 'touchend') {
